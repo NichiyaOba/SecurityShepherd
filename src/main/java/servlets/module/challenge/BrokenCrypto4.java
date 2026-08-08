@@ -132,7 +132,10 @@ public class BrokenCrypto4 extends HttpServlet {
         appleCost = appleCost - (appleCost * (perCentOffApple / 100));
         bananaCost = bananaCost - (bananaCost * (perCentOffBanana / 100));
         orangeCost = orangeCost - (orangeCost * (perCentOffOrange / 100));
-        int finalCost = pineappleCost + appleCost + bananaAmount + orangeCost;
+        // bananaAmount is the quantity, not the line cost — adding it here charged 1 unit per
+        // banana instead of 15, so bananas were sold at a fifteenth of their price regardless of
+        // any coupon.
+        int finalCost = pineappleCost + appleCost + bananaCost + orangeCost;
 
         // Output Order
         htmlOutput =
