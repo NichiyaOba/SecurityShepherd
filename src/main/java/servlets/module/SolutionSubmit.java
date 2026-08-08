@@ -107,7 +107,17 @@ public class SolutionSubmit extends HttpServlet {
           throw new RuntimeException(e);
         }
         if (notNull && storedResult != null) {
-          moduleOpen = Getter.isModuleOpen(ApplicationRoot, moduleId) && isRunning;
+          // Scoring has to respect the module plan's progression. isModuleOpen reports only the
+          // global open/closed flag, so without the per-user check a player could submit the key
+          // for
+          // a level they have not unlocked yet and score it. Administrators keep the same exemption
+          // GetModule grants them, so that they can still smoke-test a level's key before an event.
+          boolean isAdmin = Validate.validateAdminSession(ses, tokenCookie, tokenParmeter);
+          moduleOpen =
+              (isAdmin
+                      ? Getter.isModuleOpen(ApplicationRoot, moduleId)
+                      : Getter.isModuleOpenForUser(ApplicationRoot, moduleId, userId))
+                  && isRunning;
         }
         if (notNull && storedResult != null && moduleOpen) {
           boolean validKey = false;
