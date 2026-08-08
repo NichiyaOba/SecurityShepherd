@@ -89,14 +89,17 @@ public class DirectObject2 extends HttpServlet {
           log.debug("Found user: " + resultSet.getString(1));
           String userName = resultSet.getString(1);
           String privateMessage = resultSet.getString(2);
+          // Values read back out of the database are still untrusted — they were written by a user
+          // at some point — so encode them on the way into the page rather than assuming storage
+          // made them safe.
           htmlOutput =
               "<h2 class='title'>"
-                  + userName
+                  + Encode.forHtml(userName)
                   + "'s "
                   + bundle.getString("response.message")
                   + "</h2>"
                   + "<p>"
-                  + privateMessage
+                  + Encode.forHtml(privateMessage)
                   + "</p>";
         } else {
           log.debug("No Profile Found");
