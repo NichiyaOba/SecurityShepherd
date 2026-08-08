@@ -13,6 +13,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.owasp.encoder.Encode;
 import utils.FindXSS;
 import utils.Hash;
 import utils.ShepherdLogManager;
@@ -106,7 +107,10 @@ public class XssChallengeTwo extends HttpServlet {
                   + "<p>"
                   + bundle.getString("response.noResults")
                   + " "
-                  + searchTerm
+                  // Encode on output instead of relying on the blacklist filter above. A blacklist
+                  // can always be bypassed with a casing, encoding or nesting trick; contextual
+                  // output encoding makes the value inert as HTML no matter what it contains.
+                  + Encode.forHtml(searchTerm)
                   + "</p>";
           log.debug("Outputting HTML");
           out.write(htmlOutput);
