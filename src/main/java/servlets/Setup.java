@@ -162,7 +162,8 @@ public class Setup extends HttpServlet {
 
       log.debug("Starting database setup...");
 
-      String auth = "";
+      String auth = null;
+      boolean authFileLoaded = false;
 
       String enableMongoChallenge = request.getParameter("enableMongoChallenge");
 
@@ -184,27 +185,33 @@ public class Setup extends HttpServlet {
       mongoProp.append("\n");
 
       try {
-        auth = new String(Files.readAllBytes(Paths.get(Constants.SETUP_AUTH)));
+        auth =
+            new String(Files.readAllBytes(Paths.get(Constants.SETUP_AUTH)), StandardCharsets.UTF_8)
+                .trim();
+        authFileLoaded = !auth.isEmpty();
       } catch (NoSuchFileException e) {
         // Auth file could not be found.
         htmlOutput += "Auth file could not be found";
         log.error("Auth file could not be found: " + e.toString());
       }
 
-      if (auth == "") {
-        // No auth loaded, could be because user never reloaded setup page after an
-        // error. Generate it again
+      if (!authFileLoaded) {
+        // No auth token available to compare against. This is the normal state on a fresh install,
+        // and also on an already-installed instance because a successful install deletes the file
+        // (see removeAuthFile). Generate a new token so the operator can read it off disk, but
+        // never treat the absent token as a match: doing so would let anyone POST an empty dbauth
+        // and re-run the schema, destroying every user and score.
         log.debug("Generating auth file");
 
         generateAuth();
       }
 
-      if (!auth.equals(dbAuth)) {
+      if (!isAuthorised(auth, dbAuth)) {
         log.debug("Invalid auth supplied");
 
         // The supplied auth data was incorrect
         htmlOutput += bundle.getString("generic.text.setup.authentication.failed");
-        log.error("Authorization mismatch: " + auth + " does not equal " + dbAuth);
+        log.error("Authorization mismatch: the supplied setup token was rejected");
 
       } else {
         // Test the user's entered database properties. Use DriverManager directly instead of
@@ -470,14 +477,31 @@ public class Setup extends HttpServlet {
 
   private static void generateAuth() {
     try {
-      if (!Files.exists(Paths.get(Constants.SETUP_AUTH), LinkOption.NOFOLLOW_LINKS)) {
+      boolean tokenNeeded =
+          !Files.exists(Paths.get(Constants.SETUP_AUTH), LinkOption.NOFOLLOW_LINKS);
+
+      if (!tokenNeeded) {
+        // A file that exists but is blank — an interrupted write, a full disk, a truncated or empty
+        // bind-mounted file — would otherwise leave setup permanently unauthorisable: isAuthorised
+        // never matches a blank expected token, and this method would keep declining to write one.
+        tokenNeeded =
+            new String(Files.readAllBytes(Paths.get(Constants.SETUP_AUTH)), StandardCharsets.UTF_8)
+                .trim()
+                .isEmpty();
+        if (tokenNeeded) {
+          log.warn("Auth file was empty, regenerating: " + Constants.SETUP_AUTH);
+        }
+      }
+
+      if (tokenNeeded) {
         UUID randomUUID = UUID.randomUUID();
-        log.info("Auth file not found, creating: " + Constants.SETUP_AUTH);
+        log.info("Creating auth file: " + Constants.SETUP_AUTH);
 
         Files.write(
             Paths.get(Constants.SETUP_AUTH),
-            randomUUID.toString().getBytes(),
-            StandardOpenOption.CREATE);
+            randomUUID.toString().getBytes(StandardCharsets.UTF_8),
+            StandardOpenOption.CREATE,
+            StandardOpenOption.TRUNCATE_EXISTING);
         log.info("Generated UUID " + randomUUID + " in " + Constants.SETUP_AUTH);
       }
     } catch (IOException e) {
