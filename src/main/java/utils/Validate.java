@@ -324,7 +324,7 @@ public class Validate {
         newKey = newKey.concat(userSalt.substring(0, toAdd));
       }
     }
-    log.debug("Encryption key is '" + newKey + "'");
+    // The derived key is not logged: log4j2 ships with debug enabled by default.
     return newKey;
   }
 
