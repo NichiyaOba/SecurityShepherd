@@ -1422,7 +1422,9 @@ public class Getter {
             conn.prepareStatement("SELECT hardcodedKey FROM modules WHERE moduleId = ?")) {
       prepstmt.setString(1, moduleId);
       try (ResultSet moduleFind = prepstmt.executeQuery()) {
-        moduleFind.next();
+        if (!moduleFind.next()) {
+          throw new SQLException("No module found with id " + moduleId);
+        }
         theKeyType = moduleFind.getBoolean(1);
         if (theKeyType) {
           log.debug("Module has hard coded Key");
@@ -1430,9 +1432,12 @@ public class Getter {
           log.debug("Module has user specific Key");
         }
       }
-    } catch (Exception e) {
-      log.error("Module did not exist: " + e.toString());
-      theKeyType = true;
+    } catch (SQLException e) {
+      // Do not fall back to "hard coded key" here. That answer downgrades a module holding a user
+      // specific key to a shared one, so the raw stored result would be accepted as a solution from
+      // anybody. A transient database failure must not be indistinguishable from a real answer.
+      log.error("Could not determine key type for module " + moduleId + ": " + e.toString(), e);
+      throw new RuntimeException(e);
     }
     log.debug("*** END getModuleKeyType ***");
     return theKeyType;
