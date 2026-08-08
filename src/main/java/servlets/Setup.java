@@ -13,11 +13,13 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.security.MessageDigest;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -367,6 +369,29 @@ public class Setup extends HttpServlet {
     out.write(htmlOutput);
 
     out.close();
+  }
+
+  /**
+   * Constant-time comparison of the setup token held on disk against the one supplied in the
+   * request. Both must be present; an absent or blank token on either side is never a match.
+   *
+   * @param expected Token read from the setup auth file, or null when the file was unreadable
+   * @param supplied Token supplied by the requester, may be null
+   * @return True only when both tokens are present and identical
+   */
+  static boolean isAuthorised(String expected, String supplied) {
+    if (expected == null || expected.isEmpty() || supplied == null) {
+      return false;
+    }
+
+    String trimmedSupplied = supplied.trim();
+    if (trimmedSupplied.isEmpty()) {
+      return false;
+    }
+
+    return MessageDigest.isEqual(
+        expected.getBytes(StandardCharsets.UTF_8),
+        trimmedSupplied.getBytes(StandardCharsets.UTF_8));
   }
 
   /**
