@@ -70,11 +70,19 @@ public class Setup extends HttpServlet {
     String dbUser = request.getParameter("dbuser");
     String dbPass = request.getParameter("dbpass");
 
+    // An omitted parameter arrives as null; treat it as "not supplied" rather than dereferencing
+    // it. Every one of these is dereferenced further down, and /setup is reachable before
+    // authentication, so a missing field has to produce a validation message rather than a 500.
+    dbHost = orEmpty(dbHost);
+    dbPort = orEmpty(dbPort);
+    dbUser = orEmpty(dbUser);
+    dbPass = orEmpty(dbPass);
+
     String dbOptions = null;
     String connectionURL = null;
     String driverType = null;
 
-    String dbOverride = request.getParameter("dboverride");
+    String dbOverride = orEmpty(request.getParameter("dboverride"));
 
     Properties mysql_props = Setup.getDBProps();
     Properties mongo_props = new Properties();
@@ -173,9 +181,11 @@ public class Setup extends HttpServlet {
       String auth = null;
       boolean authFileLoaded = false;
 
-      String enableMongoChallenge = request.getParameter("enableMongoChallenge");
+      // Both are optional in the documented setup request, and both are dereferenced below, so a
+      // caller that omits them must not receive a 500 after the schema has already been written.
+      String enableMongoChallenge = orEmpty(request.getParameter("enableMongoChallenge"));
 
-      String enableUnsafeLevels = request.getParameter("unsafeLevels");
+      String enableUnsafeLevels = orEmpty(request.getParameter("unsafeLevels"));
 
       // Mongo DB properties
       StringBuffer mongoProp = new StringBuffer();
@@ -246,9 +256,11 @@ public class Setup extends HttpServlet {
           log.debug("Database connection successful");
 
         } catch (SQLException e) {
-          htmlOutput += bundle.getString("generic.text.setup.connection.failed") + e.getMessage();
+          // Keep the driver's message out of the response: it leaks internal hostnames, ports,
+          // schema names, server versions and the database username. It is logged instead.
+          htmlOutput += bundle.getString("generic.text.setup.connection.failed");
 
-          log.error("DB connection error: " + e.toString());
+          log.error("DB connection error: " + e.toString(), e);
           connectionSuccess = false;
         }
 
@@ -278,9 +290,9 @@ public class Setup extends HttpServlet {
 
               success = false;
 
-              htmlOutput = bundle.getString("generic.text.setup.failed") + ": " + e.getMessage();
+              htmlOutput = bundle.getString("generic.text.setup.failed");
 
-              log.error("Could not save mysql properties file: " + e.toString());
+              log.error("Could not save mysql properties file: " + e.toString(), e);
             }
 
           } else {
@@ -308,8 +320,8 @@ public class Setup extends HttpServlet {
               }
               success = true;
             } catch (SQLException e) {
-              htmlOutput = bundle.getString("generic.text.setup.failed") + ": " + e.getMessage();
-              log.error(bundle.getString("generic.text.setup.failed") + ": " + e.getMessage());
+              htmlOutput = bundle.getString("generic.text.setup.failed");
+              log.error(bundle.getString("generic.text.setup.failed") + ": " + e.getMessage(), e);
               if (!hasDBFile) {
                 FileUtils.deleteQuietly(new File(Constants.MYSQL_DB_PROP));
               }
@@ -338,8 +350,8 @@ public class Setup extends HttpServlet {
                 try {
                   executeMongoScript();
                 } catch (IOException e) {
-                  htmlOutput =
-                      bundle.getString("generic.text.setup.failed") + ": " + e.getMessage();
+                  htmlOutput = bundle.getString("generic.text.setup.failed");
+                  log.error("Could not execute mongo script: " + e.toString(), e);
                   if (!hasDBFile) {
                     FileUtils.deleteQuietly(new File(Constants.MYSQL_DB_PROP));
                   }
@@ -384,6 +396,14 @@ public class Setup extends HttpServlet {
     out.write(htmlOutput);
 
     out.close();
+  }
+
+  /**
+   * @param value A request parameter that may be absent
+   * @return The value, or the empty string when the parameter was not supplied
+   */
+  private static String orEmpty(String value) {
+    return value == null ? "" : value;
   }
 
   /**
