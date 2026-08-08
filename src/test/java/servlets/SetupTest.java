@@ -46,6 +46,50 @@ public class SetupTest {
     assertNotNull(Setup.validateHostPort("localhost", null));
   }
 
+  // The host is concatenated into "jdbc:mariadb://host:port/" and the options are appended after a
+  // "?", so a host carrying "?" or "&" can append arbitrary JDBC properties and redirect the
+  // connection to a server the requester controls.
+
+  @Test
+  public void validateHostPort_hostSmugglingJdbcProperty_isInvalid() {
+    assertNotNull(Setup.validateHostPort("evil.example.com?allowLoadLocalInfile=true", "3306"));
+  }
+
+  @Test
+  public void validateHostPort_hostSmugglingExtraParameter_isInvalid() {
+    assertNotNull(Setup.validateHostPort("db.example.com&autoDeserialize=true", "3306"));
+  }
+
+  @Test
+  public void validateHostPort_hostWithPathSeparator_isInvalid() {
+    assertNotNull(Setup.validateHostPort("db.example.com/other", "3306"));
+  }
+
+  @Test
+  public void validateHostPort_hostWithWhitespace_isInvalid() {
+    assertNotNull(Setup.validateHostPort("db.example.com ", "3306"));
+  }
+
+  @Test
+  public void validateHostPort_ipv4Host_isValid() {
+    assertNull(Setup.validateHostPort("127.0.0.1", "3306"));
+  }
+
+  @Test
+  public void validateHostPort_bracketedIpv6Host_isValid() {
+    assertNull(Setup.validateHostPort("[::1]", "3306"));
+  }
+
+  @Test
+  public void validateHostPort_nonNumericPort_isInvalid() {
+    assertNotNull(Setup.validateHostPort("localhost", "notaport"));
+  }
+
+  @Test
+  public void validateHostPort_portOutOfRange_isInvalid() {
+    assertNotNull(Setup.validateHostPort("localhost", "70000"));
+  }
+
   // A successful install deletes the auth file, so on an installed instance the token read comes
   // back empty. Treating that as a match would let anyone POST an empty dbauth and re-run the
   // schema, destroying every user and score.

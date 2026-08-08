@@ -402,8 +402,15 @@ public class Setup extends HttpServlet {
   }
 
   /**
-   * Validates that db host and port are either both provided or both empty. Returns null if valid,
-   * or an error message if invalid.
+   * Validates that db host and port are either both provided or both empty, and that a provided
+   * host and port are safe to interpolate into a JDBC URL. Returns null if valid, or an error
+   * message if invalid.
+   *
+   * <p>The host is concatenated straight into "jdbc:mariadb://host:port/" and the options string is
+   * appended after a "?", so a host containing "?" or "&" would let a requester append arbitrary
+   * JDBC properties (allowLoadLocalInfile, autoDeserialize, ...) and point the connection at a
+   * server they control. Restrict it to the characters a hostname, IPv4 address or bracketed IPv6
+   * address can legitimately contain.
    */
   static String validateHostPort(String dbHost, String dbPort) {
     if (dbHost == null) dbHost = "";
@@ -411,7 +418,29 @@ public class Setup extends HttpServlet {
     if (dbHost.isEmpty() != dbPort.isEmpty()) {
       return "If you override db host and db port, both must be entered!";
     }
+    if (dbHost.isEmpty()) {
+      // Neither supplied: the caller falls back to the properties file.
+      return null;
+    }
+    if (!isValidDatabaseHost(dbHost)) {
+      return "Database host is not a valid hostname or IP address!";
+    }
+    if (!Validate.isValidPortNumber(dbPort)) {
+      return "Database port is not a valid port number!";
+    }
     return null;
+  }
+
+  /**
+   * @param dbHost Candidate database host
+   * @return True if the value is a plain hostname, IPv4 address, or bracketed IPv6 address
+   */
+  private static boolean isValidDatabaseHost(String dbHost) {
+    if (dbHost.startsWith("[")) {
+      // Bracketed IPv6 literal, e.g. [::1]
+      return dbHost.matches("\\[[0-9A-Fa-f:.]{2,45}\\]");
+    }
+    return dbHost.matches("[A-Za-z0-9]([A-Za-z0-9._-]{0,253}[A-Za-z0-9])?");
   }
 
   public static boolean isInstalled() {
