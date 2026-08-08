@@ -85,7 +85,11 @@ public class CsrfChallengeTargetThree extends HttpServlet {
         // simply includes one with any value. Compare it against the token in the victim's cookie,
         // which a cross-site page cannot read.
         Cookie tokenCookie = Validate.getToken(request.getCookies());
-        if (!userId.equals(plusId) && Validate.validateTokens(tokenCookie, csrfParam)) {
+        // Credit only the session's own user. The counter was credited to whatever userId the
+        // request named, so a page the victim merely visited could hand the increment to somebody
+        // else — that cross-user effect is the whole point of forging the request. Requiring the
+        // two to match removes it; the token check above stays as the second line of defence.
+        if (userId.equals(plusId) && Validate.validateTokens(tokenCookie, csrfParam)) {
           String ApplicationRoot = getServletContext().getRealPath("");
           String userName = (String) ses.getAttribute("userName");
           String attackerName = Getter.getUserName(ApplicationRoot, plusId);

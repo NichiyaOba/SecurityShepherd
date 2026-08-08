@@ -81,7 +81,10 @@ public class CsrfChallengeTargetJSON extends HttpServlet {
         String plusId = (String) json.get("userId");
         log.debug("User Submitted - " + plusId);
         String userId = (String) ses.getAttribute("userStamp");
-        if (!userId.equals(plusId)) {
+        // Credit only the session's own user. The counter was credited to whatever userId the
+        // request body named, so a page the victim merely visited could hand the increment to
+        // somebody else — that cross-user effect is the whole point of forging the request.
+        if (userId.equals(plusId)) {
           String ApplicationRoot = getServletContext().getRealPath("");
           String userName = (String) ses.getAttribute("userName");
           String attackerName = Getter.getUserName(ApplicationRoot, plusId);
