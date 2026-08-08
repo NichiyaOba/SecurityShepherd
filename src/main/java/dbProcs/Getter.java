@@ -2247,6 +2247,70 @@ public class Getter {
   }
 
   /**
+   * Determines whether a module may be accessed by a specific user under the current module plan.
+   *
+   * <p>Under the incremental plan a user may only reach the modules they have already completed
+   * plus the single next uncompleted one. That rule previously existed only in {@link
+   * #getModulesJson}, which builds the menu JSON, so it decided what the UI drew but never what the
+   * server accepted: posting a later moduleId straight to GetModule or SolutionSubmit skipped the
+   * progression.
+   *
+   * @param ApplicationRoot The current running context of the application
+   * @param moduleId The identifier of the module the user is trying to reach
+   * @param userId The user identifier of the user
+   * @return True if the module is open globally and this user is permitted to reach it
+   */
+  public static boolean isModuleOpenForUser(
+      String ApplicationRoot, String moduleId, String userId) {
+    log.debug("*** Getter.isModuleOpenForUser ***");
+
+    if (!isModuleOpen(ApplicationRoot, moduleId)) {
+      return false;
+    }
+
+    if (!ModulePlan.isIncrementalFloor()) {
+      // The open and tournament plans place no per-user restriction on which module comes next.
+      return true;
+    }
+
+    if (userId == null) {
+      return false;
+    }
+
+    try (Connection conn = Database.getCoreConnection(ApplicationRoot);
+        CallableStatement callstmt = conn.prepareCall("call getMyModules(?)")) {
+      callstmt.setString(1, userId);
+      try (ResultSet levels = callstmt.executeQuery()) {
+        // Rows arrive in progression order. This mirrors the moduleOpen rule in getModulesJson:
+        // a completed module is open wherever it sits in the order, plus the first uncompleted one.
+        // Note the scan must not stop at the first uncompleted row: a player can hold completed
+        // modules further down the order (they solved them under the open or tournament plan before
+        // an administrator switched to the incremental plan), and refusing those would lock them
+        // out
+        // of work the menu still shows as finished.
+        boolean seenUncompletedModule = false;
+
+        while (levels.next()) {
+          boolean moduleCompleted = levels.getString(4) != null;
+
+          if (moduleId.equals(levels.getString(3))) {
+            return moduleCompleted || !seenUncompletedModule;
+          }
+          if (!moduleCompleted) {
+            seenUncompletedModule = true;
+          }
+        }
+      }
+    } catch (SQLException e) {
+      // Fail closed: an error here must never hand out access to a module.
+      log.error("isModuleOpenForUser Error: " + e.toString(), e);
+      return false;
+    }
+
+    return false;
+  }
+
+  /**
    * @param ApplicationRoot The current running context of the application
    * @return Result set containing admin info in the order userId, userName and userAddress
    */
