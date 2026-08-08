@@ -63,7 +63,10 @@ public class UrlAccess1Admin extends HttpServlet {
     ResourceBundle bundle =
         ResourceBundle.getBundle("i18n.servlets.challenges.urlAccess.urlAccess1", locale);
 
-    if (Validate.validateSession(ses)) {
+    // This is the administrative half of the level, and it previously accepted any signed-in user:
+    // authorisation rested entirely on knowing the endpoint and a magic userData value, which is
+    // exactly the forced-browsing flaw the level demonstrates. Require the administrator role.
+    if (Validate.validateSession(ses) && Validate.validateAdminSession(ses)) {
       ShepherdLogManager.setRequestIp(
           request.getRemoteAddr(),
           request.getHeader("X-Forwarded-For"),
