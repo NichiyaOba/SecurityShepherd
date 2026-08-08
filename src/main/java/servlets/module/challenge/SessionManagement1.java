@@ -93,7 +93,11 @@ public class SessionManagement1 extends HttpServlet {
           String decodedCookie = new String(decodedCookieBytes, "UTF-8");
           log.debug("Decoded Cookie: " + decodedCookie);
 
-          if (decodedCookie.equals("userRole=administrator")) {
+          // A cookie is client-supplied state: base64 is an encoding, not a signature, so anyone
+          // can mint "userRole=administrator" for themselves. The privilege decision has to rest on
+          // server-side session state, which the client cannot rewrite.
+          if (decodedCookie.equals("userRole=administrator")
+              && "admin".equals(ses.getAttribute("userRole"))) {
             log.debug("Challenge Complete");
             // Get key and add it to the output
             String userKey =
