@@ -70,9 +70,9 @@ public class Setup extends HttpServlet {
     String dbUser = request.getParameter("dbuser");
     String dbPass = request.getParameter("dbpass");
 
-    String dbOptions;
-    String connectionURL;
-    String driverType;
+    String dbOptions = null;
+    String connectionURL = null;
+    String driverType = null;
 
     String dbOverride = request.getParameter("dboverride");
 
@@ -81,16 +81,19 @@ public class Setup extends HttpServlet {
 
     hasDBFile = (mysql_props != null);
 
-    if (hasDBFile) {
+    // Validate host and port up front. Both branches below build "jdbc:mariadb://host:port/" by
+    // concatenation and later append "?" + options, so an unvalidated host could smuggle arbitrary
+    // JDBC properties into the URL and redirect the connection to a server the requester controls.
+    String hostPortError = validateHostPort(dbHost, dbPort);
+
+    if (hostPortError != null) {
+      htmlOutput += hostPortError;
+      validateInput = false;
+      connectionURL = "";
+    } else if (hasDBFile) {
       // Db auth file exists, try to load from it
 
-      if (dbHost.isEmpty() != dbPort.isEmpty()) {
-        // Only one of db host and db port provided, we need both or neither
-
-        htmlOutput += "If you override db host and db port, both must be entered!";
-        validateInput = false;
-        connectionURL = "";
-      } else if (dbHost.isEmpty() && dbPort.isEmpty()) {
+      if (dbHost.isEmpty() && dbPort.isEmpty()) {
         // Both db host and db port are missing, load from props file instead
         connectionURL = mysql_props.getProperty("databaseConnectionURL");
         String databaseSchema = mysql_props.getProperty("databaseSchema");
@@ -127,6 +130,11 @@ public class Setup extends HttpServlet {
           validateInput = false;
         }
       }
+    } else if (dbHost.isEmpty()) {
+      // There is no properties file to fall back on, so host and port must both be supplied.
+      htmlOutput += "Database host and port are required!";
+      validateInput = false;
+      connectionURL = "";
     } else {
       connectionURL = "jdbc:mariadb://" + dbHost + ":" + dbPort + "/";
       driverType = "org.mariadb.jdbc.Driver";
