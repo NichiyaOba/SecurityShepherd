@@ -113,7 +113,17 @@ public class FeedbackSubmit extends HttpServlet {
           }
           boolean moduleOpen = false;
           if (notNull && storedResult != null) {
-            moduleOpen = Getter.isModuleOpen(ApplicationRoot, moduleId);
+            // This servlet is the half of the submission flow that actually awards the score, and
+            // it
+            // accepts moduleId and solutionKey straight from the request with no binding to a prior
+            // SolutionSubmit call. Gating only SolutionSubmit would leave the progression skip wide
+            // open through this endpoint. Administrators keep the same exemption they have in
+            // GetModule and SolutionSubmit.
+            boolean isAdmin = Validate.validateAdminSession(ses, tokenCookie, tokenParmeter);
+            moduleOpen =
+                isAdmin
+                    ? Getter.isModuleOpen(ApplicationRoot, moduleId)
+                    : Getter.isModuleOpenForUser(ApplicationRoot, moduleId, userId);
           }
           if (notNull && storedResult != null && moduleOpen) {
             boolean validKey = false;
