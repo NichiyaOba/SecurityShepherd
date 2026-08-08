@@ -145,6 +145,11 @@ public class Getter {
 
     if (!userVerified) {
       log.debug("Hash did not match, authentication failed");
+      // Deliberately no call to the userLock procedure here. Suspending an account after repeated
+      // failures looks like brute-force protection, but the trigger is an unauthenticated request
+      // naming a public username, so it hands anyone a way to lock every competitor — and the
+      // administrator — out of a running event. Rate limiting has to key on the caller (address or
+      // proof of work), not on the account being named.
       log.debug("$$$ End authUser $$$");
       return null;
     }
