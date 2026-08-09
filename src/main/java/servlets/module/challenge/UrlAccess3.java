@@ -1,5 +1,6 @@
 package servlets.module.challenge;
 
+import dbProcs.Getter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Locale;
@@ -13,6 +14,7 @@ import javax.servlet.http.HttpSession;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import utils.Hash;
 import utils.ShepherdLogManager;
 import utils.Validate;
 
@@ -92,12 +94,25 @@ public class UrlAccess3 extends HttpServlet {
           String decodedCookie = new String(decodedCookieBytes, "UTF-8");
           log.debug("Decoded Cookie: " + decodedCookie);
 
-          // No privilege is derived from this cookie any more. The identity it carries is a plain
-          // name the client holds, wrapped in base64 — an encoding, not a signature — so a user can
-          // simply write the super administrator's name into it. This level keeps no server-side
-          // record of who its administrators are, so there is nothing the claim could be validated
-          // against and it is no longer honoured.
-          if (!decodedCookie.equals("aGuest")) {
+          if (decodedCookie.equals("MrJohnReillyTheSecond")) {
+            log.debug("Super Admin Cookie detected");
+            // Get key and add it to the output
+            String userKey =
+                Hash.generateUserSolution(
+                    Getter.getModuleResultFromHash(getServletContext().getRealPath(""), levelHash),
+                    (String) ses.getAttribute("userName"));
+            htmlOutput =
+                "<h2 class='title'>"
+                    + bundle.getString("admin.superAdminClub")
+                    + "</h2>"
+                    + "<p>"
+                    + bundle.getString("admin.superAdminClub.keyMessage")
+                    + " "
+                    + "<a>"
+                    + userKey
+                    + "</a>"
+                    + "</p>";
+          } else if (!decodedCookie.equals("aGuest")) {
             log.debug("Tampered role cookie detected: " + decodedCookie);
             htmlOutput = "<!-- " + bundle.getString("response.invalidUser") + " -->";
           } else {

@@ -11,6 +11,8 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.owasp.encoder.Encode;
+import utils.Hash;
 import utils.ShepherdLogManager;
 import utils.Validate;
 
@@ -73,20 +75,40 @@ public class UrlAccess1Admin extends HttpServlet {
 
       try {
         String userData = request.getParameter("userData");
-        log.debug("User Submitted - " + userData);
+        boolean tamperedRequest = !userData.equalsIgnoreCase("4816283");
+        if (!tamperedRequest) {
+          log.debug("No request tampering detected");
+        } else {
+          log.debug("User Submitted - " + userData);
+        }
 
-        // Knowing a shared constant is not authorisation. This administrative function handed out
-        // its result to anyone who submitted the expected userData value, which a player reads
-        // straight out of the page's JavaScript and replays — the forced-browsing flaw the level
-        // demonstrates. There is no server-side record of this level's own administrators to check
-        // a caller against, so the submitted value is no longer treated as proof of privilege.
-        htmlOutput =
-            "<h2 class='title'>"
-                + bundle.getString("response.statusFail")
-                + "</h2>"
-                + "<p>"
-                + bundle.getString("response.statusFail.message")
-                + "</p>";
+        if (!tamperedRequest) {
+          String userKey =
+              Hash.generateUserSolution(levelResult, (String) ses.getAttribute("userName"));
+          htmlOutput =
+              "<h2 class='title'>"
+                  + bundle.getString("response.status")
+                  + "</h2>"
+                  + "<p>"
+                  + bundle.getString("result.keyMessage.1")
+                  + "<br />"
+                  + "<a>"
+                  + userKey
+                  + "</a><br /> "
+                  + bundle.getString("result.keyMessage.2")
+                  + "</p>";
+        } else {
+          htmlOutput =
+              "<h2 class='title'>"
+                  + bundle.getString("response.statusFail")
+                  + "</h2>"
+                  + "<p>"
+                  + bundle.getString("response.statusFail.message")
+                  + "</p>"
+                  + "<!-- "
+                  + Encode.forHtml(userData)
+                  + " -->";
+        }
       } catch (Exception e) {
         out.write(errors.getString("error.funky"));
         log.fatal(levelName + " - " + e.toString());
