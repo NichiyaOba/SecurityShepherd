@@ -91,18 +91,13 @@ public class SessionManagement3ChangePassword extends HttpServlet {
           }
         }
         Object passNewObj = request.getParameter("newPassword");
-        Object passCurrentObj = request.getParameter("currentPassword");
         String subName = new String();
         String subNewPass = new String();
-        String subCurrentPass = new String();
         if (theCookie != null) {
           subName = theCookie.getValue();
         }
         if (passNewObj != null) {
           subNewPass = (String) passNewObj;
-        }
-        if (passCurrentObj != null) {
-          subCurrentPass = (String) passCurrentObj;
         }
         log.debug("subName = " + subName);
         // Base 64 Decode
@@ -116,6 +111,7 @@ public class SessionManagement3ChangePassword extends HttpServlet {
           subName = new String();
         }
         log.debug("subName Decoded = " + subName);
+        log.debug("subPass = " + subNewPass);
 
         if (subNewPass.length() >= 6) {
           log.debug("Getting ApplicationRoot");
@@ -124,35 +120,24 @@ public class SessionManagement3ChangePassword extends HttpServlet {
           Connection conn =
               Database.getChallengeConnection(ApplicationRoot, "BrokenAuthAndSessMangChalThree");
           log.debug("Changing password for user: " + subName);
+          log.debug("Changing password to: " + subNewPass);
           PreparedStatement callstmt;
 
-          // The account name arrives in a cookie the caller writes, so it carries no authority on
-          // its own — naming somebody else's account used to be enough to overwrite their password.
-          // Knowing the account's current password is the only thing here the server can actually
-          // check, so the update is now conditional on it and applies to no rows without it.
           callstmt =
-              conn.prepareStatement(
-                  "UPDATE users SET userPassword = SHA(?) WHERE userName = ? AND userPassword ="
-                      + " SHA(?)");
+              conn.prepareStatement("UPDATE users SET userPassword = SHA(?) WHERE userName = ?");
           callstmt.setString(1, subNewPass);
           callstmt.setString(2, subName);
-          callstmt.setString(3, subCurrentPass);
           log.debug("Executing changePassword");
-          int rowsChanged = callstmt.executeUpdate();
+          callstmt.execute();
 
           log.debug("Committing changes made to database");
           callstmt = conn.prepareStatement("COMMIT");
           callstmt.execute();
           log.debug("Changes committed.");
 
-          if (rowsChanged > 0) {
-            htmlOutput = "<p>" + bundle.getString("reset.password") + "</p>";
-          } else {
-            log.debug("Current password did not match, password not changed");
-            htmlOutput = "<p>" + bundle.getString("reset.failed") + "</p>";
-          }
+          htmlOutput = "<p>" + bundle.getString("reset.password") + "</p>";
         } else {
-          log.debug("New password too short, password not changed");
+          log.debug("invalid password submitted: " + subNewPass);
           htmlOutput = "<p>" + bundle.getString("reset.failed") + "</p>";
         }
         log.debug("Outputting HTML");
