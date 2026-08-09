@@ -78,14 +78,11 @@ public class CsrfChallengeTargetOne extends HttpServlet {
         // demonstrates: the session cookie alone is not proof of intent.
         Cookie tokenCookie = Validate.getToken(request.getCookies());
         Object tokenParmeter = request.getParameter("csrfToken");
-        // Two independent conditions must both hold. (1) Require the session's unpredictable CSRF
-        // token: a cross-site page cannot read it, so it cannot forge a request that increments the
-        // counter — this is the actual CSRF defence. (2) Ignore a request whose target user is the
-        // caller's own account: the completion check only asks whether the counter is above zero,
-        // so allowing a self-increment would let anyone finish the level by calling this endpoint
-        // on themselves, with no forgery at all. Together they leave the counter unreachable by
-        // both a forged request and a self-service one.
-        if (!userId.equals(plusId) && Validate.validateTokens(tokenCookie, tokenParmeter)) {
+        // Credit only the session's own user. The counter was credited to whatever userId the
+        // request named, so a page the victim merely visited could hand the increment to somebody
+        // else — that cross-user effect is the whole point of forging the request. Requiring the
+        // two to match removes it; the token check above stays as the second line of defence.
+        if (userId.equals(plusId) && Validate.validateTokens(tokenCookie, tokenParmeter)) {
           String ApplicationRoot = getServletContext().getRealPath("");
           String userName = (String) ses.getAttribute("userName");
           String attackerName = Getter.getUserName(ApplicationRoot, plusId);

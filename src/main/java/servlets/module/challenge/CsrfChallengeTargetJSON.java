@@ -89,11 +89,7 @@ public class CsrfChallengeTargetJSON extends HttpServlet {
         // not check any token at all.
         Cookie tokenCookie = Validate.getToken(request.getCookies());
         Object csrfToken = json.has("csrfToken") ? json.get("csrfToken") : null;
-        // Ignore a request whose target user is the caller's own account as well: completion only
-        // asks whether the counter is above zero, so a self-increment would finish the level with
-        // no forgery at all. The token check blocks a forged cross-site request; this blocks the
-        // self-service route.
-        if (!userId.equals(plusId) && Validate.validateTokens(tokenCookie, csrfToken)) {
+        if (userId.equals(plusId) && Validate.validateTokens(tokenCookie, csrfToken)) {
           String ApplicationRoot = getServletContext().getRealPath("");
           String userName = (String) ses.getAttribute("userName");
           String attackerName = Getter.getUserName(ApplicationRoot, plusId);

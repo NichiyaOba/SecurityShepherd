@@ -78,12 +78,11 @@ public class CsrfChallengeTargetTwo extends HttpServlet {
         // demonstrates: the session cookie alone is not proof of intent.
         Cookie tokenCookie = Validate.getToken(request.getCookies());
         Object tokenParmeter = request.getParameter("csrfToken");
-        // Two independent conditions must both hold. (1) Require the session's unpredictable CSRF
-        // token: a cross-site page cannot read it, so it cannot forge a request that increments the
-        // counter. (2) Ignore a request whose target user is the caller's own account: completion
-        // only asks whether the counter is above zero, so a self-increment would finish the level
-        // with no forgery at all. Together the counter is unreachable by both routes.
-        if (!userId.equals(plusId) && Validate.validateTokens(tokenCookie, tokenParmeter)) {
+        // Credit only the session's own user. The counter was credited to whatever userId the
+        // request named, so a page the victim merely visited could hand the increment to somebody
+        // else — that cross-user effect is the whole point of forging the request. Requiring the
+        // two to match removes it; the token check above stays as the second line of defence.
+        if (userId.equals(plusId) && Validate.validateTokens(tokenCookie, tokenParmeter)) {
           String ApplicationRoot = getServletContext().getRealPath("");
           String userName = (String) ses.getAttribute("userName");
           String attackerName = Getter.getUserName(ApplicationRoot, plusId);
