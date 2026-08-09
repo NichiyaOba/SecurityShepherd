@@ -127,6 +127,15 @@ public class BrokenCrypto4 extends HttpServlet {
         }
         conn.close();
 
+        // A discount must never reduce a line to nothing. The level completes only when oranges
+        // end up costing zero, which requires a full-price coupon — and the one 100%-off code is
+        // recoverable from the client-side validator this level ships. Cap every discount below
+        // 100% so no coupon, planted or forged, can make an item free.
+        perCentOffPineapple = Math.min(perCentOffPineapple, 99);
+        perCentOffOrange = Math.min(perCentOffOrange, 99);
+        perCentOffApple = Math.min(perCentOffApple, 99);
+        perCentOffBanana = Math.min(perCentOffBanana, 99);
+
         // Work Out Final Cost
         pineappleCost = pineappleCost - (pineappleCost * (perCentOffPineapple / 100));
         appleCost = appleCost - (appleCost * (perCentOffApple / 100));
